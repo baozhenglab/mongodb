@@ -32,13 +32,15 @@ type mongoDB struct {
 	isRunning    bool
 	once         *sync.Once
 	PingInterval int
+	syncFuncs    []SyncMongo
 	*mongoOpt
 }
 
-func NewMongoDB() goservice.PrefixRunnable {
+func NewMongoDB(syncFuncs ...SyncMongo) goservice.PrefixRunnable {
 	return &mongoDB{
-		once:     new(sync.Once),
-		mongoOpt: &mongoOpt{},
+		once:      new(sync.Once),
+		mongoOpt:  &mongoOpt{},
+		syncFuncs: syncFuncs,
 	}
 }
 
@@ -105,6 +107,11 @@ func (mdb *mongoDB) Run() error {
 	if err != nil {
 		mdb.logger.Error("Error connect to mongodb database at ", mdb.Uri, ". ", err.Error())
 		return err
+	}
+	for _, syncFunc := range mdb.syncFuncs {
+		if err := syncFunc(mdb.client); err != nil {
+			return err
+		}
 	}
 	mdb.isRunning = true
 	return nil
