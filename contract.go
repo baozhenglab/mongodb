@@ -7,6 +7,8 @@ type MongoDBService interface {
 	GetDatabase() *mongo.Database
 }
 
+type SyncMongo func(*mongo.Client) error
+
 type mongodbService struct {
 	client   *mongo.Client
 	database *mongo.Database
