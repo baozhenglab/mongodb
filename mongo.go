@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	goservice "github.com/baozhenglab/go-sdk"
-	"github.com/baozhenglab/go-sdk/logger"
+	goservice "github.com/baozhenglab/go-sdk/v2"
+	"github.com/baozhenglab/go-sdk/v2/logger"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
