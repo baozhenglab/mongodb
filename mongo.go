@@ -139,7 +139,7 @@ func (mdb *mongoDB) getConnWithRetry(retryCount int) (err error) {
 			err = mdb.connect()
 			mdb.logger.Errorf("Retry to connect %s (%d). with err %s\n", mdb.Name(), i, err.Error())
 			if err == nil {
-				return err
+				return nil
 			}
 		}
 	} else {
