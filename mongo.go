@@ -30,6 +30,7 @@ type mongoDB struct {
 	logger       logger.Logger
 	client       *mongo.Client
 	isRunning    bool
+	isConnect    bool
 	once         *sync.Once
 	PingInterval int
 	syncFuncs    []SyncMongo
@@ -133,13 +134,20 @@ func (mdb *mongoDB) getConnWithRetry(retryCount int) (err error) {
 	err = mdb.connect()
 
 	if err != nil {
+		//mdb.client.Disconnect(context.Background())
 		for i := 1; i <= retryCount; i++ {
 			time.Sleep(time.Second * 2)
 			mdb.logger.Errorf("Retry to connect %s (%d).\n", mdb.Name(), i)
 			err = mdb.connect()
-			mdb.logger.Errorf("Retry to connect %s (%d). with err %s\n", mdb.Name(), i, err.Error())
+			if err != nil {
+				mdb.logger.Errorf("Retry to connect %s (%d). with err %s\n", mdb.Name(), i, err.Error())
+			}
+
 			if err == nil {
+				mdb.logger.Infof("Reconnect suceessfully")
 				return nil
+			} else {
+				time.Sleep(time.Second * 2)
 			}
 		}
 	} else {
@@ -150,20 +158,23 @@ func (mdb *mongoDB) getConnWithRetry(retryCount int) (err error) {
 }
 
 func (mdb *mongoDB) connect() (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	if err = mdb.client.Connect(ctx); err != nil {
-		go cancel()
-		return err
+	if !mdb.isConnect {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if err = mdb.client.Connect(ctx); err != nil {
+			go cancel()
+			return err
+		}
+		mdb.isConnect = true
 	}
-	return mdb.client.Ping(ctx, readpref.Primary())
+	return mdb.client.Ping(context.Background(), readpref.Primary())
 }
+
 
 func (mdb *mongoDB) reconnectIfNeeded() {
 	client := mdb.client
 	for {
 		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 		if err := client.Ping(ctx, readpref.Primary()); err != nil {
-			client.Disconnect(ctx)
 			mdb.logger.Errorf("%s connection is gone, try to reconnect\n", mdb.Name())
 			mdb.isRunning = false
 			mdb.once = new(sync.Once)
