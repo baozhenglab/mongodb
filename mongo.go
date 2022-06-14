@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	mongowrapper "github.com/opencensus-integrations/gomongowrapper"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"math"
 	"sync"
 	"time"
@@ -11,8 +13,6 @@ import (
 	goservice "github.com/baozhenglab/go-sdk/v2"
 	"github.com/baozhenglab/go-sdk/v2/logger"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
@@ -28,7 +28,7 @@ type mongoOpt struct {
 
 type mongoDB struct {
 	logger       logger.Logger
-	client       *mongo.Client
+	client       *mongowrapper.WrappedClient
 	isRunning    bool
 	isConnect    bool
 	once         *sync.Once
@@ -68,7 +68,7 @@ func (mdb *mongoDB) Get() interface{} {
 	if mdb.client == nil {
 		return nil
 	}
-	service := &mongodbService{mdb.client, mdb.client.Database(mdb.Database)}
+	service := &mongodbService{mdb.client.Client(), mdb.client.Database(mdb.Database).Database()}
 	return service
 }
 
@@ -87,7 +87,7 @@ func (mdb *mongoDB) Configure() error {
 	if mdb.isDisabled() || mdb.isRunning {
 		return nil
 	}
-	client, err := mongo.NewClient(options.Client().ApplyURI(mdb.Uri))
+	client, err := mongowrapper.NewClient(options.Client().ApplyURI(mdb.Uri))
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (mdb *mongoDB) Run() error {
 		return err
 	}
 	for _, syncFunc := range mdb.syncFuncs {
-		if err := syncFunc(mdb.client); err != nil {
+		if err := syncFunc(mdb.client.Client()); err != nil {
 			return err
 		}
 	}
@@ -144,7 +144,7 @@ func (mdb *mongoDB) getConnWithRetry(retryCount int) (err error) {
 			}
 
 			if err == nil {
-				mdb.logger.Infof("Reconnect suceessfully")
+				mdb.logger.Infof("Reconnect successfully")
 				return nil
 			} else {
 				time.Sleep(time.Second * 2)
@@ -168,7 +168,6 @@ func (mdb *mongoDB) connect() (err error) {
 	}
 	return mdb.client.Ping(context.Background(), readpref.Primary())
 }
-
 
 func (mdb *mongoDB) reconnectIfNeeded() {
 	client := mdb.client
